@@ -1,0 +1,528 @@
+To implement the car management application with the specified features, you'll need to create new Car model, a SqlCarService for database interactions, and modify Form1 and UserDialog to handle car data instead of person data.
+
+Here's a breakdown of the changes and the updated code for each file:
+
+Car.cs (New Model)
+This file will define the Car class, similar to your Person class, but with properties for ID, Model, Weight, and Speed.
+
+C#
+
+// LashaMurgvaLominadzeShraieri.Final.Models/Car.cs
+namespace LashaMurgvaLominadzeShraieri.Final.Models
+{
+    public class Car
+    {
+        public int ID { get; set; }
+        public string Model { get; set; }
+        public double Weight { get; set; }
+        public int Speed { get; set; }
+
+        public Car(string model, double weight, int speed)
+        {
+            Model = model;
+            Weight = weight;
+            Speed = speed;
+        }
+
+        public Car() { } // Default constructor for database retrieval
+
+        public override string ToString()
+        {
+            return $"{ID} {Model}"; // Display ID and Model in the ListBox
+        }
+    }
+}
+SqlCarService.cs (New Service)
+This service will replace SqlPersonService and handle all database operations for Car objects. It will interact with a database named CarDatabase and a table named Cars.
+
+C#
+
+// LashaMurgvaLominadzeShraieri.Final.Services/SqlCarService.cs
+using LashaMurgvaLominadzeShraieri.Final.Models;
+using Microsoft.Data.SqlClient;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace LashaMurgvaLominadzeShraieri.Final.Services
+{
+    public class SqlCarService
+    {
+        private readonly string _connectionString;
+
+        public SqlCarService()
+        {
+            // IMPORTANT: Replace "YourPassword123!" with your actual SQL Server password.
+            _connectionString = "Server=localhost,1433;Database=CarDatabase;User Id=sa;Password=YourPassword123;TrustServerCertificate=True;";
+        }
+
+        public void AddCar(Car car)
+        {
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "INSERT INTO Cars (Model, Weight, Speed) VALUES (@Model, @Weight, @Speed)";
+                using (SqlCommand command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@Model", car.Model);
+                    command.Parameters.AddWithValue("@Weight", car.Weight);
+                    command.Parameters.AddWithValue("@Speed", car.Speed);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void DeleteCar(int id)
+        {
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "DELETE FROM Cars WHERE Id = @Id";
+                using (SqlCommand command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@Id", id);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void UpdateCar(Car updatedCar)
+        {
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "UPDATE Cars SET Model = @Model, Weight = @Weight, Speed = @Speed WHERE Id = @Id";
+                using (SqlCommand command = new SqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@Model", updatedCar.Model);
+                    command.Parameters.AddWithValue("@Weight", updatedCar.Weight);
+                    command.Parameters.AddWithValue("@Speed", updatedCar.Speed);
+                    command.Parameters.AddWithValue("@Id", updatedCar.ID);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public IEnumerable<Car> GetCars()
+        {
+            List<Car> cars = new List<Car>();
+            using (SqlConnection connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT Id, Model, Weight, Speed FROM Cars";
+                using (SqlCommand command = new SqlCommand(sql, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            cars.Add(new Car(
+                                model: reader["Model"].ToString(),
+                                weight: Convert.ToDouble(reader["Weight"]),
+                                speed: Convert.ToInt32(reader["Speed"])
+                            )
+                            { ID = Convert.ToInt32(reader["Id"]) });
+                        }
+                    }
+                }
+            }
+            return cars;
+        }
+    }
+}
+Form1.Designer.cs
+No significant changes needed here, as the control names remain the same, only their purpose changes.
+
+C#
+
+namespace LashaMurgvaLominadzeShraieri.Final
+{
+    partial class Form1
+    {
+        private System.ComponentModel.IContainer components = null;
+        private ListBox listBox;
+        private Button addBtn;
+        private Button editBtn;
+        private Button deleteBtn;
+
+        private void InitializeComponent()
+        {
+            listBox = new ListBox();
+            addBtn = new Button();
+            editBtn = new Button();
+            deleteBtn = new Button();
+            SuspendLayout();
+            //
+            // listBox
+            //
+            listBox.FormattingEnabled = true;
+            listBox.ItemHeight = 15;
+            listBox.Location = new Point(14, 308);
+            listBox.Name = "listBox";
+            listBox.Size = new Size(886, 259);
+            listBox.TabIndex = 3;
+            //
+            // addBtn
+            //
+            addBtn.Location = new Point(14, 168);
+            addBtn.Name = "addBtn";
+            addBtn.Size = new Size(86, 31);
+            addBtn.TabIndex = 2;
+            addBtn.Text = "Add";
+            addBtn.Click += addBtn_Click;
+            //
+            // editBtn
+            //
+            editBtn.Location = new Point(135, 168);
+            editBtn.Name = "editBtn";
+            editBtn.Size = new Size(86, 31);
+            editBtn.TabIndex = 1;
+            editBtn.Text = "Edit";
+            editBtn.Click += editBtn_Click;
+            //
+            // deleteBtn
+            //
+            deleteBtn.Location = new Point(245, 168);
+            deleteBtn.Name = "deleteBtn";
+            deleteBtn.Size = new Size(86, 31);
+            deleteBtn.TabIndex = 0;
+            deleteBtn.Text = "Delete";
+            deleteBtn.Click += deleteBtn_Click;
+            //
+            // Form1
+            //
+            ClientSize = new Size(914, 600);
+            Controls.Add(deleteBtn);
+            Controls.Add(editBtn);
+            Controls.Add(addBtn);
+            Controls.Add(listBox);
+            Name = "Form1";
+            Text = "Car Management"; // Changed title
+            ResumeLayout(false);
+        }
+    }
+}
+Form1.cs
+This file will be updated to use the Car model and SqlCarService.
+
+C#
+
+// LashaMurgvaLominadzeShraieri.Final/Form1.cs
+using LashaMurgvaLominadzeShraieri.Final.Models;
+using LashaMurgvaLominadzeShraieri.Final.Services;
+using System.ComponentModel; // Make sure this is included
+using System.Linq;
+
+namespace LashaMurgvaLominadzeShraieri.Final
+{
+    public partial class Form1 : Form
+    {
+        private readonly SqlCarService _carService;
+        private readonly BindingList<Car> _bindingList;
+
+        public Form1()
+        {
+            InitializeComponent();
+            _carService = new SqlCarService(); // Instantiate the new service
+            _bindingList = new BindingList<Car>();
+            listBox.DataSource = _bindingList;
+            listBox.DisplayMember = "ToString"; // Display the ToString() output in the ListBox
+
+            Sync(); // Load initial data from the database when the form loads
+        }
+
+        // Add Button Click Event
+        private void addBtn_Click(object sender, EventArgs e)
+        {
+            CarDialog dialog = new CarDialog(); // Use CarDialog
+            if (dialog.ShowDialog() == DialogResult.OK)
+            {
+                var car = new Car(
+                    dialog.Model,
+                    dialog.Weight,
+                    dialog.Speed
+                );
+
+                _carService.AddCar(car);
+                Sync(); // Update the list
+            }
+        }
+
+        // Edit Button Click Event
+        private void editBtn_Click(object sender, EventArgs e)
+        {
+            // Get the selected Car object directly from the ListBox
+            if (listBox.SelectedItem is Car selectedCar)
+            {
+                CarDialog dialog = new CarDialog(selectedCar); // Use CarDialog
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    // Update the properties of the selectedCar object
+                    selectedCar.Model = dialog.Model;
+                    selectedCar.Weight = dialog.Weight;
+                    selectedCar.Speed = dialog.Speed;
+
+                    // Pass the updated Car object to the service
+                    _carService.UpdateCar(selectedCar);
+                    Sync(); // Update the list
+                }
+            }
+            else
+            {
+                MessageBox.Show("Please select a car to edit.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        // Delete Button Click Event
+        private void deleteBtn_Click(object sender, EventArgs e)
+        {
+            // Get the selected Car object directly from the ListBox
+            if (listBox.SelectedItem is Car selectedCar)
+            {
+                // Pass the ID of the selected Car to the service for deletion
+                _carService.DeleteCar(selectedCar.ID);
+                Sync(); // Update the list
+            }
+            else
+            {
+                MessageBox.Show("Please select a car to delete.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        // Sync the list with updated data
+        private void Sync()
+        {
+            _bindingList.Clear(); // Clear current list
+            var cars = _carService.GetCars().ToList(); // Get updated cars from service
+            foreach (var car in cars)
+            {
+                _bindingList.Add(car); // Add each car to the BindingList
+            }
+        }
+    }
+}
+Program.cs
+Update the namespace.
+
+C#
+
+namespace LashaMurgvaLominadzeShraieri.Final
+{
+    internal static class Program
+    {
+        [STAThread]
+        static void Main()
+        {
+            ApplicationConfiguration.Initialize();
+            Application.Run(new Form1());
+        }
+    }
+}
+UserDialog.Designer.cs (Renamed to CarDialog.Designer.cs for clarity)
+This file will define the UI for the car dialog. It will have text boxes for Model, Weight, and Speed.
+
+C#
+
+namespace LashaMurgvaLominadzeShraieri.Final
+{
+    partial class CarDialog
+    {
+        private System.ComponentModel.IContainer components = null;
+        private TextBox ModelTextBox;
+        private TextBox WeightTextBox;
+        private TextBox SpeedTextBox;
+        private Button DoneButton;
+        private Label modelLbl;
+        private Label weightLbl;
+        private Label speedLbl;
+
+        private void InitializeComponent()
+        {
+            ModelTextBox = new TextBox();
+            WeightTextBox = new TextBox();
+            SpeedTextBox = new TextBox();
+            DoneButton = new Button();
+            modelLbl = new Label();
+            weightLbl = new Label();
+            speedLbl = new Label();
+            SuspendLayout();
+            //
+            // ModelTextBox
+            //
+            ModelTextBox.Location = new Point(12, 30);
+            ModelTextBox.Name = "ModelTextBox";
+            ModelTextBox.Size = new Size(200, 23);
+            ModelTextBox.TabIndex = 0;
+            //
+            // WeightTextBox
+            //
+            WeightTextBox.Location = new Point(12, 70);
+            WeightTextBox.Name = "WeightTextBox";
+            WeightTextBox.Size = new Size(200, 23);
+            WeightTextBox.TabIndex = 1;
+            //
+            // SpeedTextBox
+            //
+            SpeedTextBox.Location = new Point(12, 110);
+            SpeedTextBox.Name = "SpeedTextBox";
+            SpeedTextBox.Size = new Size(200, 23);
+            SpeedTextBox.TabIndex = 2;
+            //
+            // DoneButton
+            //
+            DoneButton.Location = new Point(12, 150);
+            DoneButton.Name = "DoneButton";
+            DoneButton.Size = new Size(200, 30);
+            DoneButton.TabIndex = 3;
+            DoneButton.Text = "Done";
+            DoneButton.Click += DoneButton_Click;
+            //
+            // modelLbl
+            //
+            modelLbl.AutoSize = true;
+            modelLbl.Location = new Point(12, 12);
+            modelLbl.Name = "modelLbl";
+            modelLbl.Size = new Size(41, 15);
+            modelLbl.TabIndex = 4;
+            modelLbl.Text = "Model";
+            //
+            // weightLbl
+            //
+            weightLbl.AutoSize = true;
+            weightLbl.Location = new Point(12, 56);
+            weightLbl.Name = "weightLbl";
+            weightLbl.Size = new Size(45, 15);
+            weightLbl.TabIndex = 5;
+            weightLbl.Text = "Weight";
+            //
+            // speedLbl
+            //
+            speedLbl.AutoSize = true;
+            speedLbl.Location = new Point(12, 96);
+            speedLbl.Name = "speedLbl";
+            speedLbl.Size = new Size(39, 15);
+            speedLbl.TabIndex = 6;
+            speedLbl.Text = "Speed";
+            //
+            // CarDialog
+            //
+            ClientSize = new Size(230, 200);
+            Controls.Add(speedLbl);
+            Controls.Add(weightLbl);
+            Controls.Add(modelLbl);
+            Controls.Add(ModelTextBox);
+            Controls.Add(WeightTextBox);
+            Controls.Add(SpeedTextBox);
+            Controls.Add(DoneButton);
+            Name = "CarDialog";
+            Text = "Car Dialog";
+            ResumeLayout(false);
+            PerformLayout();
+        }
+    }
+}
+UserDialog.cs (Renamed to CarDialog.cs for clarity)
+This file will handle the logic for the car dialog, including validation and passing data back to Form1.
+
+C#
+
+using LashaMurgvaLominadzeShraieri.Final.Models;
+using System;
+using System.Windows.Forms;
+
+namespace LashaMurgvaLominadzeShraieri.Final
+{
+    public partial class CarDialog : Form
+    {
+        public string Model { get; private set; }
+        public double Weight { get; private set; }
+        public int Speed { get; private set; }
+
+        public CarDialog()
+        {
+            InitializeComponent();
+        }
+
+        public CarDialog(Car car) : this()
+        {
+            ModelTextBox.Text = car.Model;
+            WeightTextBox.Text = car.Weight.ToString();
+            SpeedTextBox.Text = car.Speed.ToString();
+        }
+
+        private void DoneButton_Click(object sender, EventArgs e)
+        {
+            // Validate Model
+            if (string.IsNullOrWhiteSpace(ModelTextBox.Text))
+            {
+                MessageBox.Show("Please enter a car model.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            Model = ModelTextBox.Text;
+
+            // Validate Weight
+            if (!double.TryParse(WeightTextBox.Text, out double weight))
+            {
+                MessageBox.Show("Please enter a valid weight.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            Weight = weight;
+
+            // Validate Speed
+            if (!int.TryParse(SpeedTextBox.Text, out int speed))
+            {
+                MessageBox.Show("Please enter a valid speed.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            Speed = speed;
+
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+    }
+}
+Database Setup
+Before running the application, you'll need to set up your SQL Server database and table. Assuming you're running SQL Server in a Docker container (as implied by localhost,1433 and sa user), you'll need to execute the following SQL commands:
+
+Create the Database:
+
+SQL
+
+CREATE DATABASE CarDatabase;
+GO
+Use the Database:
+
+SQL
+
+USE CarDatabase;
+GO
+Create the Cars Table:
+
+SQL
+
+CREATE TABLE Cars (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    Model NVARCHAR(255) NOT NULL,
+    Weight FLOAT NOT NULL,
+    Speed INT NOT NULL
+);
+GO
+Remember to replace "YourPassword123" in SqlCarService.cs with the actual password for your sa user.
+
+With these changes, your C# Windows Forms application will now manage car data stored in a SQL Server database, allowing you to add, edit, and delete car entries, with the ListBox displaying the car's ID and model.
+
+
+Sources
+
+OKay and now Select * command to see the sql database
+
+
+You want to see the data in your SQL Server CarDatabase and the Cars table. Here's the SELECT * command to do just that:
+
+SQL Command to View Car Data
+To view all the data in your Cars table within the CarDatabase, use the following SQL query:
+
+SQL
+
+USE CarDatabase;
+SELECT * FROM Cars;
